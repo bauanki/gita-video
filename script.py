@@ -8,7 +8,7 @@ FONT = next(iter(glob.glob("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bo
 BG = "bg.mp4"
 SPEED = 1.2
 MUSIC_VOLUME = 0.30
-INTRO = "हे पार्थ, मेरी बात ध्यान से सुनो और समझो भगवद्गीता में यह लिखा है कि" god
+INTRO = "हे पार्थ, मेरी बात ध्यान से सुनो और समझो भगवद्गीता में यह लिखा है कि" 
 
 def clean(s):
     s = re.sub(r'[॥।|]*\s*[\d०-९]+\s*[.\-:]\s*[\d०-९]+\s*[॥।|]*', ' ', s)
