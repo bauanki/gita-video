@@ -1,4 +1,4 @@
-import requests, random, re, asyncio, glob, os
+import requests, random, re, asyncio, glob, os, time
 import edge_tts
 from moviepy import (VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip,
                      CompositeAudioClip, vfx, afx)
@@ -6,9 +6,10 @@ from moviepy import (VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip,
 FONT = next(iter(glob.glob("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf")
                  + glob.glob("/usr/share/fonts/**/NotoSansDevanagari*.ttf", recursive=True)))
 BG = "bg.mp4"
-SPEED = 1.1
-MUSIC_VOLUME = 0.25
-INTRO = "हे पार्थ, मेरी बात ध्यान से सुनो और समझो भगवद्गीता में यह लिखा है कि" 
+SPEED = 1.
+MUSIC_VOLUME = 0.24
+INTRO = "हे पार्थ, मेरी बात ध्यान से सुनो और समझो। भगवद्गीता में यह लिखा है कि"
+OUTRO = "जय श्री कृष्ण।"
 
 def clean(s):
     s = re.sub(r'[॥।|]*\s*[\d०-९]+\s*[.\-:]\s*[\d०-९]+\s*[॥।|]*', ' ', s)
@@ -24,14 +25,25 @@ def get_shlok():
         return ("कर्मण्येवाधिकारस्ते मा फलेषु कदाचन।",
                 "तुम्हारा अधिकार केवल कर्म करने में है, फल में कभी नहीं।")
 
+def make_voice(text):
+    for i in range(5):
+        try:
+            asyncio.run(edge_tts.Communicate(text, "hi-IN-MadhurNeural",
+                        rate="+40%", pitch="-20Hz").save("voice.mp3"))
+            return
+        except Exception as e:
+            print("edge-tts fail", i, e)
+            time.sleep(8)
+    from gtts import gTTS
+    gTTS(text=text, lang="hi").save("voice.mp3")
+
 slok, meaning = get_shlok()
-full = INTRO + " " + meaning
+full = INTRO + " " + meaning + " " + OUTRO
 
 with open("caption.txt", "w", encoding="utf-8") as f:
-    f.write(slok + "\n\n" + meaning + "\n\n#bhagavadgita #geeta #krishna #motivation #hindu #reels")
+    f.write(slok + "\n\n" + meaning + "\n\nजय श्री कृष्ण 🙏\n\n#bhagavadgita #geeta #krishna #motivation #hindu #reels")
 
-asyncio.run(edge_tts.Communicate(full, "hi-IN-MadhurNeural",
-                                 rate="+40%", pitch="-20Hz").save("voice.mp3"))
+make_voice(full)
 voice = AudioFileClip("voice.mp3")
 dur = voice.duration + 0.5
 
