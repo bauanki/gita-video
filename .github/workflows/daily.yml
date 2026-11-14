@@ -18,6 +18,8 @@ jobs:
           sudo apt-get install -y fonts-noto-core libraqm0
           pip install moviepy requests edge-tts gtts
       - run: python script.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - name: Save video
         run: |
           D=$(date +%F)
@@ -25,7 +27,7 @@ jobs:
           cp output.mp4 videos/$D.mp4
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          git add videos
+          git add videos used.txt
           git commit -m "video $D"
           git push
           echo "VIDEO_NAME=$D" >> $GITHUB_ENV
