@@ -1,29 +1,69 @@
-import requests, random, re, asyncio, glob, os, time
+import requests, random, re, asyncio, glob, os, time, json
 import edge_tts
 from moviepy import (VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip,
                      CompositeAudioClip, vfx, afx)
 
 FONT = next(iter(glob.glob("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf")
                  + glob.glob("/usr/share/fonts/**/NotoSansDevanagari*.ttf", recursive=True)))
-BG = "bg.mp4"
 SPEED = 1.
-MUSIC_VOLUME = 0.24
-INTRO = "हे पार्थ, मेरी बात ध्यान से सुनो और समझो। भगवद्गीता में यह लिखा है कि"
+MUSIC_VOLUME = 0.25
+INTRO = "हे पार्थ, मेरी बात ध्यान से सुनो। भगवद्गीता में यह लिखा है कि"
 OUTRO = "जय श्री कृष्ण।"
+GEMINI_MODEL = "gemini-2.5-flash"   # error aaye to AI Studio mein current model naam dekho
+
+COUNTS = {2:72, 3:43, 4:42, 5:29, 6:47, 7:30, 8:28, 9:34, 10:42,
+          11:55, 12:20, 13:35, 14:27, 15:20, 16:24, 17:28, 18:78}
 
 def clean(s):
     s = re.sub(r'[॥।|]*\s*[\d०-९]+\s*[.\-:]\s*[\d०-९]+\s*[॥।|]*', ' ', s)
     return re.sub(r'\s+', ' ', s).strip()
 
-def get_shlok():
+def pick_shlok():
+    used = set()
+    if os.path.exists("used.txt"):
+        used = set(open("used.txt", encoding="utf-8").read().split())
+    allv = [(c, v) for c, n in COUNTS.items() for v in range(1, n + 1)]
+    left = [x for x in allv if f"{x[0]}.{x[1]}" not in used]
+    if not left:
+        used = set(); left = allv
+        open("used.txt", "w").write("")
+    random.shuffle(left)
+    for c, v in left[:40]:
+        try:
+            r = requests.get(f"https://vedicscriptures.github.io/slok/{c}/{v}", timeout=15).json()
+            slok = clean(r["slok"])
+            ht = clean(r.get("tej", {}).get("ht", ""))
+            if len(ht) < 20 or len(ht) > 350:
+                continue
+            with open("used.txt", "a", encoding="utf-8") as f:
+                f.write(f"{c}.{v}\n")
+            return c, v, slok, ht
+        except Exception as e:
+            print("shlok fail", c, v, e)
+    return 2, 47, "कर्मण्येवाधिकारस्ते मा फलेषु कदाचन।", "तुम्हारा अधिकार केवल कर्म करने में है, फल में कभी नहीं।"
+
+def gemini(slok, ht):
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key:
+        return None
+    prompt = (f"भगवद्गीता का शुद्ध श्लोक: {slok}\nहिंदी अर्थ: {ht}\n\n"
+              "श्लोक को बिल्कुल मत बदलो। सिर्फ JSON दो, इन keys के साथ:\n"
+              '"hook": 12 शब्दों से छोटा एक रोचक सवाल या बात (हिंदी),\n'
+              '"meaning": 1-2 छोटे आसान वाक्यों में अर्थ, 200 अक्षर से कम (हिंदी),\n'
+              '"caption": 2 छोटी पंक्तियाँ हिंदी में और अंत में 4 प्रासंगिक hashtags।')
     try:
-        ch, v = random.choice([(2,47),(2,48),(2,14),(3,35),(4,7),(6,5),(18,66),(2,20),(9,22),(12,15)])
-        r = requests.get(f"https://vedicscriptures.github.io/slok/{ch}/{v}", timeout=15).json()
-        return clean(r["slok"]), clean(r["tej"]["ht"])
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+            headers={"x-goog-api-key": key},
+            json={"contents": [{"parts": [{"text": prompt}]}],
+                  "generationConfig": {"responseMimeType": "application/json"}},
+            timeout=60).json()
+        d = json.loads(r["candidates"][0]["content"]["parts"][0]["text"])
+        if d.get("hook") and d.get("meaning") and d.get("caption"):
+            return d
     except Exception as e:
-        print("API fail:", e)
-        return ("कर्मण्येवाधिकारस्ते मा फलेषु कदाचन।",
-                "तुम्हारा अधिकार केवल कर्म करने में है, फल में कभी नहीं।")
+        print("gemini fail:", e)
+    return None
 
 def make_voice(text):
     for i in range(5):
@@ -37,24 +77,33 @@ def make_voice(text):
     from gtts import gTTS
     gTTS(text=text, lang="hi").save("voice.mp3")
 
-slok, meaning = get_shlok()
+ch, vs, slok, ht = pick_shlok()
+g = gemini(slok, ht)
+if g:
+    meaning = g["meaning"].strip()
+    caption = g["hook"].strip() + "\n\n" + g["caption"].strip()
+else:
+    meaning = ht
+    caption = "भगवद्गीता का संदेश\n\n" + ht + "\n\n#bhagavadgita #geeta #krishna #motivation"
+caption += f"\n\nगीता {ch}.{vs} | जय श्री कृष्ण 🙏"
 full = INTRO + " " + meaning + " " + OUTRO
 
 with open("caption.txt", "w", encoding="utf-8") as f:
-    f.write(slok + "\n\n" + meaning + "\n\nजय श्री कृष्ण 🙏\n\n#bhagavadgita #geeta #krishna #motivation #hindu #reels")
+    f.write(caption)
 
 make_voice(full)
 voice = AudioFileClip("voice.mp3")
 dur = voice.duration + 0.5
-
-mp3s = [f for f in glob.glob("*.mp3") if f != "voice.mp3"]
+ mp3s = [f for f in glob.glob("*.mp3") if f != "voice.mp3"]
 if mp3s:
-    music = AudioFileClip(mp3s[0])
+    music = AudioFileClip(random.choice(mp3s))
     music = music.with_effects([afx.AudioLoop(duration=dur), afx.MultiplyVolume(MUSIC_VOLUME)])
     audio = CompositeAudioClip([music, voice])
 else:
     audio = voice
 
+BG = random.choice(glob.glob("bg*.mp4"))
+print("BG:", BG)
 bg = VideoFileClip(BG).without_audio()
 bg = bg.with_effects([vfx.MultiplySpeed(SPEED)])
 if bg.duration < dur:
