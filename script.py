@@ -6,10 +6,10 @@ from moviepy import (VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip,
 FONT = next(iter(glob.glob("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf")
                  + glob.glob("/usr/share/fonts/**/NotoSansDevanagari*.ttf", recursive=True)))
 SPEED = 1.
-MUSIC_VOLUME = 0.25
+MUSIC_VOLUME = 0.24
 INTRO = "हे पार्थ, मेरी बात ध्यान से सुनो। भगवद्गीता में यह लिखा है कि"
 OUTRO = "जय श्री कृष्ण।"
-GEMINI_MODEL = "gemini-2.5-flash"   # error aaye to AI Studio mein current model naam dekho
+GEMINI_MODEL = "gemini-2.5-flash"
 
 COUNTS = {2:72, 3:43, 4:42, 5:29, 6:47, 7:30, 8:28, 9:34, 10:42,
           11:55, 12:20, 13:35, 14:27, 15:20, 16:24, 17:28, 18:78}
@@ -25,7 +25,7 @@ def pick_shlok():
     allv = [(c, v) for c, n in COUNTS.items() for v in range(1, n + 1)]
     left = [x for x in allv if f"{x[0]}.{x[1]}" not in used]
     if not left:
-        used = set(); left = allv
+        left = allv
         open("used.txt", "w").write("")
     random.shuffle(left)
     for c, v in left[:40]:
@@ -94,7 +94,8 @@ with open("caption.txt", "w", encoding="utf-8") as f:
 make_voice(full)
 voice = AudioFileClip("voice.mp3")
 dur = voice.duration + 0.5
- mp3s = [f for f in glob.glob("*.mp3") if f != "voice.mp3"]
+
+mp3s = [f for f in glob.glob("*.mp3") if f != "voice.mp3"]
 if mp3s:
     music = AudioFileClip(random.choice(mp3s))
     music = music.with_effects([afx.AudioLoop(duration=dur), afx.MultiplyVolume(MUSIC_VOLUME)])
