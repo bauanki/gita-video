@@ -7,6 +7,7 @@ FONT = next(iter(glob.glob("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bo
                  + glob.glob("/usr/share/fonts/**/NotoSansDevanagari*.ttf", recursive=True)))
 SPEED = 1.
 MUSIC_VOLUME = 0.24
+VOICE_VOLUME = 1.5
 INTRO = "हे पार्थ, मेरी बात ध्यान से सुनो। भगवद्गीता में यह लिखा है कि"
 OUTRO = "जय श्री कृष्ण।"
 GEMINI_MODEL = "gemini-2.5-flash"
@@ -92,7 +93,7 @@ with open("caption.txt", "w", encoding="utf-8") as f:
     f.write(caption)
 
 make_voice(full)
-voice = AudioFileClip("voice.mp3")
+voice = AudioFileClip("voice.mp3").with_effects([afx.MultiplyVolume(VOICE_VOLUME)])
 dur = voice.duration + 0.5
 
 mp3s = [f for f in glob.glob("*.mp3") if f != "voice.mp3"]
